@@ -67,7 +67,7 @@ nonlinear_quantlim <- function(datain, alpha = 0.05, Npoints = 100, Nbootstrap =
   
   noise = mean(tmp_blank$I)
   var_noise = var(tmp_blank$I)
-  print(paste("Variance of noise =", var_noise))
+  #print(paste("Variance of noise =", var_noise))
 
   pb <- txtProgressBar(min = 0, max = 1, initial = 0, char = "%",
                        width = 40, title, label, style = 1, file = "")
@@ -75,17 +75,13 @@ nonlinear_quantlim <- function(datain, alpha = 0.05, Npoints = 100, Nbootstrap =
   
   n_blank = length(unique(tmp_blank$I))
 
+  #if(nrow(tmp_blank) <= 1 || var_noise  <= 0){
+  #  print("Not enough blank samples or variance is <=0!")
+  #  return(NULL)
+  #}
+
   ## TODO: VARIANCE ALLOWANCE
   # IF VARIANCE ZERO, ITERATE THROUGH INCREASING CONCENTRATION UNTIL VARIANCE NOT ZERO
-  if(nrow(tmp_blank) <= 1 || var_noise  <= 0){
-    print("Not enough blank samples or variance is <=0!")
-    return(NULL)
-  }
-  
-  fac = qt(1-alpha,n_blank - 1)*sqrt(1+1/n_blank)
-
-  #upper bound of noise prediction interval
-  up_noise = noise   +  fac* sqrt(var_noise)
   
   unique_c = sort(unique(tmp_all$C));   var_v <- rep(0.0, length(unique_c))
   weights  <- rep(0.0, length(tmp_all$C));
@@ -99,7 +95,30 @@ nonlinear_quantlim <- function(datain, alpha = 0.05, Npoints = 100, Nbootstrap =
     ii = ii +1
   }
   
+  print('results from lines 97-102:')
+  print(var_v)
   
+  if(var_noise <= 0){
+    print("Variance of noise is <=0! Attempting to find nonzero variance in upper concentration levels.")
+    ii = 1
+    for (v in var_v){
+      if (var_v[ii] > 0){
+        temp_var_blank = var_v[ii]
+        break
+      } else{
+        ii = ii +1
+      }
+    }
+    print(paste("Found! Blank variance set to", temp_var_blank))
+  }
+  
+    
+  fac = qt(1-alpha,n_blank - 1)*sqrt(1+1/n_blank)
+
+  #upper bound of noise prediction interval
+  up_noise = noise   +  fac* sqrt(var_noise)
+  
+
   #Log scale discretization:
   xaxis_orig_2 <- exp(c( seq( from = log(10+0), to = log(1+max(unique_c)), by = log(1+max(unique_c))/Npoints ))) -10 #0.250 to go fast here
   xaxis_orig_2 <- unique(sort(c(xaxis_orig_2,unique_c))) 
@@ -552,8 +571,8 @@ library(MSnbase)
 library(minpack.lm)
 
 
-curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/UPS_water_curve_encyclopedia.elib.peptides.MELTED.csv", header= TRUE, stringsAsFactors = FALSE)
-precursor.start <- 1
+curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/UPS_water_curve_encyclopedia.elib.peptides.MELTED.csv", header= TRUE, stringsAsFactors = FALSE) # problem with the UPS dataset where replicates are duplicated, check melting script
+precursor.start <- 1 
 precursor.end <- length(unique(curve.df$NAME))
 peptides <- unique(curve.df$NAME)
 peptide.batch <- peptides[precursor.start:precursor.end]
@@ -583,17 +602,18 @@ for (peptide in peptide.batch){
   if(n_blank <= 1) {next}
   
   df_out <- nonlinear_quantlim(df_in)
-  try(plot_quantlim(spikeindata = df_in, quantlim_out = df_out, dir_output=fo_dir))
+  #try(plot_quantlim(spikeindata = df_in, quantlim_out = df_out, dir_output=fo_dir))
   
   # write the nonlinear_quantlim() results to an outfile for more downstream processing
-  if(counter == 1){
-    write.table(df_out, file=fo, append=FALSE, col.names=TRUE)
-  } else {
-    try(write.table(df_out, file=fo, append=TRUE, col.names=FALSE))
-  }
+  #if(counter == 1){
+  #  write.table(df_out, file=fo, append=FALSE, col.names=TRUE)
+  #} else {
+  #  try(write.table(df_out, file=fo, append=TRUE, col.names=FALSE))
+  #}
   
   #print(df_out)
   
 }
 
+print(df_out)
 close(fo)
