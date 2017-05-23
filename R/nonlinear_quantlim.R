@@ -530,3 +530,70 @@ nonlinear_quantlim <- function(datain, alpha = 0.05, Npoints = 100, Nbootstrap =
       ))
            )
 }
+
+#rm(list = ls())
+library(readr)
+library(tidyr)
+library(dplyr)
+library(gplots)
+library(lme4)
+library(ggplot2)
+library(ggrepel)
+library(reshape)
+library(reshape2)
+library(data.table)
+library(Rcpp)
+library(survival)
+library(limma)
+library(marray)
+library(preprocessCore)
+library(MSnbase)
+#library(MSstats, lib.loc= "/net/maccoss/vol6/home/lpino/R/3.3.0/libs")
+library(minpack.lm)
+
+
+curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/UPS_water_curve_encyclopedia.elib.peptides.MELTED.csv", header= TRUE, stringsAsFactors = FALSE)
+precursor.start <- 1
+precursor.end <- length(unique(curve.df$NAME))
+peptides <- unique(curve.df$NAME)
+peptide.batch <- peptides[precursor.start:precursor.end]
+
+
+# calculate LOD/LOQ for each peptide, storing plots in a designated directory
+date <- Sys.Date()
+fo <- paste(getwd(), "/proj/MSstats-patch/dev/", date, ".txt", sep="")
+counter <- 1 # inititalize counter for "for" loop below
+for (peptide in peptide.batch){
+  
+  time <- Sys.time()
+  print(paste("counter=",counter)) # sanity check
+  print(time)
+  print(peptide)
+  
+  counter <- counter + 1 # increment counter to ensure update
+  #df_in contains data for peptide i  
+  df_in <- curve.df %>% filter(NAME == peptide)
+  
+  #Count the number of blank samples for the peptide (with a non NA intensity) [commented out 'and with different values']
+  df_blank = df_in %>% filter(CONCENTRATION == 0 & !is.na(INTENSITY)) #%>%  distinct(INTENSITY) 
+  
+  #n_blank = number of "acceptable" blank samples:
+  n_blank = nrow(df_blank)
+  print(paste("n_blank=",n_blank))
+  if(n_blank <= 1) {next}
+  
+  df_out <- nonlinear_quantlim(df_in)
+  try(plot_quantlim(spikeindata = df_in, quantlim_out = df_out, dir_output=fo_dir))
+  
+  # write the nonlinear_quantlim() results to an outfile for more downstream processing
+  if(counter == 1){
+    write.table(df_out, file=fo, append=FALSE, col.names=TRUE)
+  } else {
+    try(write.table(df_out, file=fo, append=TRUE, col.names=FALSE))
+  }
+  
+  #print(df_out)
+  
+}
+
+close(fo)
