@@ -80,7 +80,6 @@ nonlinear_quantlim <- function(datain, alpha = 0.05, Npoints = 100, Nbootstrap =
   #  return(NULL)
   #}
 
-  ## TODO: VARIANCE ALLOWANCE
   # IF VARIANCE ZERO, ITERATE THROUGH INCREASING CONCENTRATION UNTIL VARIANCE NOT ZERO
   
   unique_c = sort(unique(tmp_all$C));   var_v <- rep(0.0, length(unique_c))
@@ -95,21 +94,22 @@ nonlinear_quantlim <- function(datain, alpha = 0.05, Npoints = 100, Nbootstrap =
     ii = ii +1
   }
   
-  print('results from lines 97-102:')
-  print(var_v)
+  #print('results from lines 97-102:')
+  #print(var_v)
   
   if(var_noise <= 0){
     print("Variance of noise is <=0! Attempting to find nonzero variance in upper concentration levels.")
     ii = 1
     for (v in var_v){
       if (var_v[ii] > 0){
-        temp_var_blank = var_v[ii]
+        var_blank = var_v[ii]
+        var_noise = var_v[ii]
         break
-      } else{
+      } else{ 
         ii = ii +1
       }
     }
-    print(paste("Found! Blank variance set to", temp_var_blank))
+    print(paste("Found! Blank variance set to", var_blank))
   }
   
     
@@ -571,7 +571,7 @@ library(MSnbase)
 library(minpack.lm)
 
 
-curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/UPS_water_curve_encyclopedia.elib.peptides.MELTED.csv", header= TRUE, stringsAsFactors = FALSE) # problem with the UPS dataset where replicates are duplicated, check melting script
+curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/TEST_df.csv", header= TRUE, stringsAsFactors = FALSE)
 precursor.start <- 1 
 precursor.end <- length(unique(curve.df$NAME))
 peptides <- unique(curve.df$NAME)
@@ -602,7 +602,7 @@ for (peptide in peptide.batch){
   if(n_blank <= 1) {next}
   
   df_out <- nonlinear_quantlim(df_in)
-  #try(plot_quantlim(spikeindata = df_in, quantlim_out = df_out, dir_output=fo_dir))
+  try(plot_quantlim(spikeindata = df_in, quantlim_out = df_out, dir_output=fo_dir))
   
   # write the nonlinear_quantlim() results to an outfile for more downstream processing
   #if(counter == 1){
