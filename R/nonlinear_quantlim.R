@@ -1594,14 +1594,18 @@ library(MSnbase)
 library(minpack.lm)
 
 
-curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/calibration_data_norm.csv", header= TRUE, stringsAsFactors = FALSE)
+#curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/calibration_data_norm.csv", header= TRUE, stringsAsFactors = FALSE)
+curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/TEST_df.csv", header= TRUE, stringsAsFactors = FALSE)
+
 precursor.start <- 1 
 precursor.end <- length(unique(curve.df$NAME))
 peptides <- unique(curve.df$NAME)
 peptide.batch <- peptides[precursor.start:precursor.end]
 
 #peptide <- "LPPGLLANFTLLR" #nonlinear
-peptide <- "FVGTPEVNQTTLYQR" #linear
+#peptide <- "FVGTPEVNQTTLYQR" #linear
+peptide <- "BLANKVARIANCENONZERO" 
+peptide <- "BLANKVARIANCEZERO" 
 subset.df <- curve.df %>% filter(NAME == peptide)
 subset.df <- na.omit(subset.df)
 
