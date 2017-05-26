@@ -1105,8 +1105,6 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
   #  return(NULL)
   #}
 
-  # IF VARIANCE ZERO, ITERATE THROUGH INCREASING CONCENTRATION UNTIL VARIANCE NOT ZERO
-  
   unique_c = sort(unique(tmp_all$C));   var_v <- rep(0.0, length(unique_c))
   weights  <- rep(0.0, length(tmp_all$C));
   weights_nob  <- rep(0.0, length(tmp_nob$C));
@@ -1116,25 +1114,23 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
   for (j in unique_c){
     data_f <- subset(tmp_all, C == j)
     var_v[ii] <- var(data_f$I)
+
+    if (min(data_f$I) > 0){
+      nonzeroC <- ii
+    }
+    
     ii = ii +1
   }
   
   #print('results from lines 97-102:')
   #print(var_v)
   
-  #PATCH to account for situations where the blank is all quantitative values of 0
+  # PATCH to account for situations where the blank is all quantitative values of 0
+  # IF VARIANCE ZERO, ITERATE THROUGH INCREASING CONCENTRATION UNTIL VARIANCE NOT ZERO
   if(var_noise <= 0){
     print("Variance of noise is <=0! Attempting to find nonzero variance in upper concentration levels.")
-    ii = 1
-    for (v in var_v){
-      if (var_v[ii] > 0){
-        var_blank = var_v[ii]
-        var_noise = var_v[ii]
-        break
-      } else{ 
-        ii = ii +1
-      }
-    }
+    var_blank = var_v[nonzeroC]
+    var_noise = var_v[nonzeroC]
     print(paste("Found! Blank variance set to", var_blank))
   }
   
