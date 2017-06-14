@@ -1097,7 +1097,7 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
   pb <- txtProgressBar(min = 0, max = 1, initial = 0, char = "%",
                        width = 40, title, label, style = 1, file = "")
   
-  
+  ## must be unique intensity values!!!
   n_blank = length(unique(tmp_blank$I))
 
   #if(nrow(tmp_blank) <= 1 || var_noise  <= 0){
@@ -1105,36 +1105,45 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
   #  return(NULL)
   #}
 
-  unique_c = sort(unique(tmp_all$C));   var_v <- rep(0.0, length(unique_c))
-  weights  <- rep(0.0, length(tmp_all$C));
-  weights_nob  <- rep(0.0, length(tmp_nob$C));
+  unique_c = sort(unique(tmp_all$C));   # list unique concentration points
+  var_v <- rep(0.0, length(unique_c)) # intialize vector to hold variance of each point
+  weights  <- rep(0.0, length(tmp_all$C)); # initialize vector to hold weights for each concentration point
+  weights_nob  <- rep(0.0, length(tmp_nob$C)); # initialize vector to hold weights for each point, minus blank points
   
   #Calculate variance for all concentrations keeping NA values:
   ii = 1
   for (j in unique_c){
     data_f <- subset(tmp_all, C == j)
     var_v[ii] <- var(data_f$I)
-
-    if (min(data_f$I) > 0){
-      nonzeroC <- ii
-    }
-    
     ii = ii +1
   }
+
+  ## BLANK VARIANCE ZERO PATCH pt1 
+  iii = 1
+  for (j in unique_c){
+    data_f <- subset(tmp_all, C == j)
+    
+    ## patch to account for when the blank has values of 0
+    if (min(data_f$I) > 0){
+      nonzeroC <- iii  # save the first nonzero concentration point 
+      n_blank <- length(unique(data_f$I)) # set the number of blanks to this
+      noise <- mean(data_f$I) # set the noise to the mean of this nonzero point
+      tmp_blank <- data_f
+      break
+    }
+    
+    iii = iii +1
+  }
   
-  #print('results from lines 97-102:')
-  #print(var_v)
-  
-  # PATCH to account for situations where the blank is all quantitative values of 0
+  # PATCH pt2 to account for situations where the blank is all quantitative values of 0
   # IF VARIANCE ZERO, ITERATE THROUGH INCREASING CONCENTRATION UNTIL VARIANCE NOT ZERO
   if(var_noise <= 0){
     print("Variance of noise is <=0! Attempting to find nonzero variance in upper concentration levels.")
     var_blank = var_v[nonzeroC]
-    var_noise = var_v[nonzeroC]
+    var_noise = var_blank
     print(paste("Found! Blank variance set to", var_blank))
   }
-  
-    
+
   fac = qt(1-alpha,n_blank - 1)*sqrt(1+1/n_blank)
 
   #upper bound of noise prediction interval
@@ -1193,11 +1202,13 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
           
           sink(null_output);
           #Set intercept at noise and solve for the slope and change
+          print("entering fit.blank_B bilinear nlsLM() fitting...")
           fit.blank_B <- NULL
           fit.blank_B <- tryCatch({nlsLM( I ~ .bilinear_LOD(C , noise_B, slope, change),data=tmpB, trace = TRUE,start=c(slope=slope, change=change), weights = weights,
                                           control = nls.lm.control(nprint=1,ftol = sqrt(.Machine$double.eps)/2, maxiter = 50))}, error = function(e) {NULL}
           )
-          
+          print("results of fit.blank_B bilinear nlsLM() fitting...")
+          print(fit.blank_B)
           
           sink();
         }
@@ -1237,12 +1248,13 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
               
               sink(null_output);
               
-              
+              print("entering fit.blank_BB nlsLM() fitting...")
               fit.blank_BB <- NULL
               fit.blank_BB <- tryCatch({nlsLM( I ~ .bilinear_LOD(C , noise_BB, slope, change),data=tmpBB, trace = TRUE,start=c(slope=slope, change=change), weights = weightsB,
                                                control = nls.lm.control(nprint=1,ftol = sqrt(.Machine$double.eps)/2, maxiter = 50))}, error = function(e) {NULL}
               )
-              
+              print("result of fit.blank_BB nslLM() fit:")
+              print(fit.blank_BB)
               sink();
               
               if(!is.null(fit.blank_BB)){ 
@@ -1310,9 +1322,11 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
           slope = median(tmpB$I)/median(tmpB$C)*runif(1)
           intercept = noise*runif(1)
           sink(null_output);
+          print("Entering linear fit attempt...")
           lin.blank_B <-  tryCatch({nlsLM( I ~ .linear(C , intercept, slope),data=tmpB, trace = TRUE,start=c(intercept=intercept, slope=slope), weights = weights,
                                            control = nls.lm.control(nprint=1,ftol = sqrt(.Machine$double.eps)/2, maxiter = 50))}, error = function(e) {NULL}
           )
+          print("Finished linear fit attempt.")
           sink();
           if(!is.null(lin.blank_B)) break
         }
@@ -1561,21 +1575,23 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
   
   
   return(
-    data.frame(as.data.frame(list(CONCENTRATION = xaxis_orig_2, MEAN=mean_bilinear,LOW= lower_Q_pred, UP = upper_Q_pred, LOB= rep(LOD_pred, length(upper_Q_pred)),  LOD = rep(LOQ_pred, length(upper_Q_pred)),
-                                  SLOPE =slope_lin , INTERCEPT =intercept_lin, NAME = rep(datain$NAME[1], length(upper_Q_pred)),
-                                  METHOD = rep("NONLINEAR", length(upper_Q_pred))
+    data.frame(as.data.frame(list(CONCENTRATION = xaxis_orig_2, 
+                                  MEAN=mean_bilinear,
+                                  LOW= lower_Q_pred, 
+                                  UP = upper_Q_pred, 
+                                  LOB= rep(LOD_pred, length(upper_Q_pred)),  
+                                  LOD = rep(LOQ_pred, length(upper_Q_pred)),
+                                  SLOPE =slope_lin , 
+                                  INTERCEPT =intercept_lin, 
+                                  NAME = rep(datain$NAME[1], length(upper_Q_pred)),
+                                  METHOD = rep("NONLINEAR", length(upper_Q_pred)))))
     )
-    ))
-  )
 }
 
 #rm(list = ls())
-library(readr)
-library(tidyr)
-library(dplyr)
+library(tidyverse)
 library(gplots)
 library(lme4)
-library(ggplot2)
 library(ggrepel)
 library(reshape)
 library(reshape2)
@@ -1599,11 +1615,17 @@ peptides <- unique(curve.df$NAME)
 peptide.batch <- peptides[precursor.start:precursor.end]
 
 #peptide <- "LPPGLLANFTLLR" #nonlinear
-#peptide <- "FVGTPEVNQTTLYQR" #linear
+peptide <- "FVGTPEVNQTTLYQR" #linear
 peptide <- "BLANKVARIANCENONZERO" 
 peptide <- "BLANKVARIANCEZERO" 
 subset.df <- curve.df %>% filter(NAME == peptide)
 subset.df <- na.omit(subset.df)
+
+testout.vanilla <- nonlinear_quantlim(subset.df)
+testout.modded <- nonlinear_quantlim_modded(subset.df)
+
+plot_quantlim(spikeindata = subset.df, quantlim_out = this, dir_output=getwd())
+
 
 # calculate LOD/LOQ for each peptide, storing plots in a designated directory
 date <- Sys.Date()

@@ -55,8 +55,35 @@ plot_quantlim <- function(spikeindata, quantlim_out, alpha, dir_output, xlim_plo
   n_blank = length(unique(tmp_blank$I))
   noise = mean(tmp_blank$I)
   var_noise = var(tmp_blank$I)
+
+  ## BLANK VARIANCE ZERO PATCH pt1 
+  iii = 1
+  for (j in unique_c){
+    data_f <- subset(tmp_all, C == j)
+    
+    ## patch to account for when the blank has values of 0
+    if (min(data_f$I) > 0){
+      nonzeroC <- iii  # save the first nonzero concentration point 
+      n_blank <- length(unique(data_f$I)) # set the number of blanks to this
+      noise <- mean(data_f$I) # set the noise to the mean of this nonzero point
+      tmp_blank <- data_f
+      break
+    }
+    
+    iii = iii +1
+  }
+  
+  # PATCH pt2 to account for situations where the blank is all quantitative values of 0
+  # IF VARIANCE ZERO, ITERATE THROUGH INCREASING CONCENTRATION UNTIL VARIANCE NOT ZERO
+  if(var_noise <= 0){
+    print("Variance of noise is <=0! Attempting to find nonzero variance in upper concentration levels.")
+    var_blank = var_v[nonzeroC]
+    var_noise = var_blank
+    print(paste("Found! Blank variance set to", var_blank))
+  }
   
   
+  ## NEED TO FIX THIS TO REFLECT MODIFIED nonlinear_quantlim
   fac = qt(1-alpha,n_blank - 1)*sqrt(1+1/n_blank)
   
   #upper bound of noise prediction interval
