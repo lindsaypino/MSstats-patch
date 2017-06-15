@@ -1081,11 +1081,12 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
   datain <- datain[!is.na(datain$I) & !is.na(datain$C),]  
   datain <- datain[!is.infinite(datain$I) & !is.infinite(datain$C),]  
   
-  
   datain <- datain[order(datain$C),] 
+  tmp_blank <- subset(datain,datain$C == 0)
+  
+  #datain <- subset(datain,datain$I >0)  # PATCH pt3 TO SEE IF MODEL WILL CONVERGE WHEN THERE'S NOT MANY POINTS with I>0
   tmp_nob <- subset(datain,datain$C >0)  
   tmp_all <- datain
-  tmp_blank <-subset(datain,datain$C == 0)
   
   #Calculate the value of the noise:
   #Use the zero concentration to calculate the LOD:
@@ -1118,7 +1119,7 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
     ii = ii +1
   }
 
-  ## BLANK VARIANCE ZERO PATCH pt1 
+  ## BLANK VARIANCE ZERO PATCH pt1 COMBO WITH PT2
   iii = 1
   for (j in unique_c){
     data_f <- subset(tmp_all, C == j)
@@ -1128,6 +1129,8 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
       nonzeroC <- iii  # save the first nonzero concentration point 
       n_blank <- length(unique(data_f$I)) # set the number of blanks to this
       noise <- mean(data_f$I) # set the noise to the mean of this nonzero point
+      var_blank <- var(data_f$I)
+      var_noise < var_blank
       tmp_blank <- data_f
       break
     }
@@ -1137,12 +1140,13 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
   
   # PATCH pt2 to account for situations where the blank is all quantitative values of 0
   # IF VARIANCE ZERO, ITERATE THROUGH INCREASING CONCENTRATION UNTIL VARIANCE NOT ZERO
-  if(var_noise <= 0){
-    print("Variance of noise is <=0! Attempting to find nonzero variance in upper concentration levels.")
-    var_blank = var_v[nonzeroC]
-    var_noise = var_blank
-    print(paste("Found! Blank variance set to", var_blank))
-  }
+  #if(var_noise <= 0){
+  #  print("Variance of noise is <=0! Attempting to find nonzero variance in upper concentration levels.")
+  #  var_blank = var_v[nonzeroC]
+  #  var_noise = var_blank
+  #  print(paste("Found! Blank variance set to", var_blank))
+  #}
+
 
   fac = qt(1-alpha,n_blank - 1)*sqrt(1+1/n_blank)
 
@@ -1190,6 +1194,8 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
       for (kk in 1:length(tmpB$C)){
         weights[kk] = 1/var_v_s_unique[which( unique_c == tmpB$C[kk])]
       }   
+      ## dirty fix for when var(I) of point C is 0, resulting in weight 1/0=Inf
+      weights[is.infinite(weights)] <- 1E-20
       
       noise_B = mean(sample(tmp_blank$I,length(tmp_blank$I),replace=TRUE)) #Mean of resampled noise (= mean of noise)
       
@@ -1240,6 +1246,8 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
               for (kk in 1:length(tmpBB$C)){
                 weightsB[kk] = 1/var_v_s_unique[which( unique_c == tmpBB$C[kk])]
               }  
+              ## dirty fix for when var(I) of point C is 0, resulting in weight 1/0=Inf
+              weightsB[is.infinite(weightsB)] <- 1E-20
               
               
               #Need to also bootstrap for the value of the mean:
@@ -1606,16 +1614,13 @@ library(MSnbase)
 library(minpack.lm)
 
 
-#curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/calibration_data_norm.csv", header= TRUE, stringsAsFactors = FALSE)
+curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/calibration_data_norm.csv", header= TRUE, stringsAsFactors = FALSE)
 curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/TEST_df.csv", header= TRUE, stringsAsFactors = FALSE)
-
-precursor.start <- 1 
-precursor.end <- length(unique(curve.df$NAME))
-peptides <- unique(curve.df$NAME)
-peptide.batch <- peptides[precursor.start:precursor.end]
+curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/dia-quant/data/2016analyses/20160329lkp_CalibrationCurves_quantlib.elib.peptides.searle2msstats.csv", header=TRUE, stringsAsFactors=FALSE)
 
 #peptide <- "LPPGLLANFTLLR" #nonlinear
 peptide <- "FVGTPEVNQTTLYQR" #linear
+peptide <- "ALALGSSTVMMGGMLAGTTESPGEYFYK" # gives null result on cluster
 peptide <- "BLANKVARIANCENONZERO" 
 peptide <- "BLANKVARIANCEZERO" 
 subset.df <- curve.df %>% filter(NAME == peptide)
@@ -1624,7 +1629,7 @@ subset.df <- na.omit(subset.df)
 testout.vanilla <- nonlinear_quantlim(subset.df)
 testout.modded <- nonlinear_quantlim_modded(subset.df)
 
-plot_quantlim(spikeindata = subset.df, quantlim_out = this, dir_output=getwd())
+plot_quantlim(spikeindata = subset.df, quantlim_out = testout.modded, dir_output=getwd())
 
 
 # calculate LOD/LOQ for each peptide, storing plots in a designated directory
@@ -1643,15 +1648,15 @@ for (peptide in peptide.batch){
   df_in <- curve.df %>% filter(NAME == peptide)
   
   #Count the number of blank samples for the peptide (with a non NA intensity) [commented out 'and with different values']
-  df_blank = df_in %>% filter(CONCENTRATION == 0 & !is.na(INTENSITY)) #%>%  distinct(INTENSITY) 
+  #df_blank = df_in %>% filter(CONCENTRATION == 0 & !is.na(INTENSITY)) #%>%  distinct(INTENSITY) 
   
   #n_blank = number of "acceptable" blank samples:
-  n_blank = nrow(df_blank)
-  print(paste("n_blank=",n_blank))
+  #n_blank = nrow(df_blank)
+  #print(paste("n_blank=",n_blank))
   if(n_blank <= 1) {next}
   
-  df_out <- nonlinear_quantlim(df_in)
-  #try(plot_quantlim(spikeindata = df_in, quantlim_out = df_out, dir_output=fo_dir))
+  df_out <- nonlinear_quantlim_modded(df_in)
+  try(plot_quantlim(spikeindata = df_in, quantlim_out = df_out, dir_output=getwd()))
   
   # write the nonlinear_quantlim() results to an outfile for more downstream processing
   #if(counter == 1){
