@@ -1195,7 +1195,7 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
         weights[kk] = 1/var_v_s_unique[which( unique_c == tmpB$C[kk])]
       }   
       ## dirty fix for when var(I) of point C is 0, resulting in weight 1/0=Inf
-      weights[is.infinite(weights)] <- 1E-20
+      weights[is.infinite(weights)] <- max(weights[is.finite(weights)])
       
       noise_B = mean(sample(tmp_blank$I,length(tmp_blank$I),replace=TRUE)) #Mean of resampled noise (= mean of noise)
       
@@ -1208,14 +1208,14 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
           
           sink(null_output);
           #Set intercept at noise and solve for the slope and change
-          print("entering fit.blank_B bilinear nlsLM() fitting...")
           fit.blank_B <- NULL
-          fit.blank_B <- tryCatch({nlsLM( I ~ .bilinear_LOD(C , noise_B, slope, change),data=tmpB, trace = TRUE,start=c(slope=slope, change=change), weights = weights,
-                                          control = nls.lm.control(nprint=1,ftol = sqrt(.Machine$double.eps)/2, maxiter = 50))}, error = function(e) {NULL}
-          )
-          print("results of fit.blank_B bilinear nlsLM() fitting...")
-          print(fit.blank_B)
-          
+          fit.blank_B <- tryCatch({nlsLM( I ~ .bilinear_LOD(C , noise_B, slope, change),
+                                          data=tmpB, 
+                                          trace = TRUE,
+                                          start=c(slope=slope, change=change), 
+                                          weights = weights,
+                                          control = nls.lm.control(nprint=1,ftol = sqrt(.Machine$double.eps)/2, maxiter = 50))}, 
+                                  error = function(e) {NULL})
           sink();
         }
         
@@ -1240,14 +1240,14 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
               iii = iii + 1
               tmpBB <- tmpB[sample(1:nrow(tmpB), replace=TRUE),] 
               change = median(tmpBB$C)*runif(1)*0.25
-              slope=median(tmpBB$I)/median(tmpBB$C)*runif(1)
+              slope = median(tmpBB$I)/median(tmpBB$C)*runif(1)
               
               weightsB = rep(0,length(tmpB$C) )
               for (kk in 1:length(tmpBB$C)){
                 weightsB[kk] = 1/var_v_s_unique[which( unique_c == tmpBB$C[kk])]
               }  
               ## dirty fix for when var(I) of point C is 0, resulting in weight 1/0=Inf
-              weightsB[is.infinite(weightsB)] <- 1E-20
+              weightsB[is.infinite(weightsB)] <- max(weightsB[is.finite(weightsB)])
               
               
               #Need to also bootstrap for the value of the mean:
@@ -1256,13 +1256,14 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
               
               sink(null_output);
               
-              print("entering fit.blank_BB nlsLM() fitting...")
               fit.blank_BB <- NULL
-              fit.blank_BB <- tryCatch({nlsLM( I ~ .bilinear_LOD(C , noise_BB, slope, change),data=tmpBB, trace = TRUE,start=c(slope=slope, change=change), weights = weightsB,
-                                               control = nls.lm.control(nprint=1,ftol = sqrt(.Machine$double.eps)/2, maxiter = 50))}, error = function(e) {NULL}
-              )
-              print("result of fit.blank_BB nslLM() fit:")
-              print(fit.blank_BB)
+              fit.blank_BB <- tryCatch({nlsLM( I ~ .bilinear_LOD(C , noise_BB, slope, change),
+                                               data=tmpBB, 
+                                               trace = TRUE,
+                                               start=c(slope=slope, change=change), 
+                                               weights = weightsB,
+                                               control = nls.lm.control(nprint=1,ftol = sqrt(.Machine$double.eps)/2, maxiter = 50))}, 
+                                       error = function(e) {NULL})
               sink();
               
               if(!is.null(fit.blank_BB)){ 
@@ -1330,11 +1331,13 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
           slope = median(tmpB$I)/median(tmpB$C)*runif(1)
           intercept = noise*runif(1)
           sink(null_output);
-          print("Entering linear fit attempt...")
-          lin.blank_B <-  tryCatch({nlsLM( I ~ .linear(C , intercept, slope),data=tmpB, trace = TRUE,start=c(intercept=intercept, slope=slope), weights = weights,
-                                           control = nls.lm.control(nprint=1,ftol = sqrt(.Machine$double.eps)/2, maxiter = 50))}, error = function(e) {NULL}
-          )
-          print("Finished linear fit attempt.")
+          lin.blank_B <-  tryCatch({nlsLM( I ~ .linear(C , intercept, slope),
+                                           data=tmpB, 
+                                           trace = TRUE,
+                                           start=c(intercept=intercept, slope=slope), 
+                                           weights = weights,
+                                           control = nls.lm.control(nprint=1,ftol = sqrt(.Machine$double.eps)/2, maxiter = 50))},
+                                   error = function(e) {NULL})
           sink();
           if(!is.null(lin.blank_B)) break
         }
