@@ -1084,7 +1084,7 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
   datain <- datain[order(datain$C),] 
   tmp_blank <- subset(datain,datain$C == 0)
   
-  #datain <- subset(datain,datain$I >0)  # PATCH pt3 TO SEE IF MODEL WILL CONVERGE WHEN THERE'S NOT MANY POINTS with I>0
+  #datain <- subset(datain,datain$I >0 & datain$C >0)  # PATCH pt3(?) TO SEE IF MODEL WILL CONVERGE WHEN THERE'S NOT MANY POINTS with I>0
   tmp_nob <- subset(datain,datain$C >0)  
   tmp_all <- datain
   
@@ -1119,7 +1119,7 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
     ii = ii +1
   }
 
-  ## BLANK VARIANCE ZERO PATCH pt1 COMBO WITH PT2
+  ## BLANK VARIANCE ZERO PATCH
   iii = 1
   for (j in unique_c){
     data_f <- subset(tmp_all, C == j)
@@ -1130,28 +1130,19 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
       n_blank <- length(unique(data_f$I)) # set the number of blanks to this
       noise <- mean(data_f$I) # set the noise to the mean of this nonzero point
       var_blank <- var(data_f$I)
-      var_noise < var_blank
+      var_noise <- var_blank
       tmp_blank <- data_f
       break
     }
     
     iii = iii +1
   }
+
   
-  # PATCH pt2 to account for situations where the blank is all quantitative values of 0
-  # IF VARIANCE ZERO, ITERATE THROUGH INCREASING CONCENTRATION UNTIL VARIANCE NOT ZERO
-  #if(var_noise <= 0){
-  #  print("Variance of noise is <=0! Attempting to find nonzero variance in upper concentration levels.")
-  #  var_blank = var_v[nonzeroC]
-  #  var_noise = var_blank
-  #  print(paste("Found! Blank variance set to", var_blank))
-  #}
-
-
-  fac = qt(1-alpha,n_blank - 1)*sqrt(1+1/n_blank)
+  fac = qt(1-alpha,n_blank - 1)*sqrt(1+1/n_blank) ## qt() requires n_blank >= 2
 
   #upper bound of noise prediction interval
-  up_noise = noise   +  fac* sqrt(var_noise)
+  up_noise = noise   +  fac* sqrt(var_noise) ## ok this is a problem... the noise threshold is way too high
   
 
   #Log scale discretization:
@@ -1195,7 +1186,9 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
         weights[kk] = 1/var_v_s_unique[which( unique_c == tmpB$C[kk])]
       }   
       ## dirty fix for when var(I) of point C is 0, resulting in weight 1/0=Inf
-      weights[is.infinite(weights)] <- max(weights[is.finite(weights)])
+      #weights[is.infinite(weights)] <- min(weights[is.finite(weights)])
+      #weights[is.infinite(weights)] <- max(weights[is.finite(weights)])
+      weights[is.infinite(weights)] <- 0
       
       noise_B = mean(sample(tmp_blank$I,length(tmp_blank$I),replace=TRUE)) #Mean of resampled noise (= mean of noise)
       
@@ -1247,7 +1240,9 @@ nonlinear_quantlim_modded <- function(datain, alpha = 0.05, Npoints = 100, Nboot
                 weightsB[kk] = 1/var_v_s_unique[which( unique_c == tmpBB$C[kk])]
               }  
               ## dirty fix for when var(I) of point C is 0, resulting in weight 1/0=Inf
-              weightsB[is.infinite(weightsB)] <- max(weightsB[is.finite(weightsB)])
+              #weightsB[is.infinite(weightsB)] <- min(weightsB[is.finite(weightsB)])
+              #weightsB[is.infinite(weightsB)] <- max(weightsB[is.finite(weightsB)])
+              weightsB[is.infinite(weightsB)] <- 0
               
               
               #Need to also bootstrap for the value of the mean:
@@ -1615,6 +1610,7 @@ library(preprocessCore)
 library(MSnbase)
 #library(MSstats, lib.loc= "/net/maccoss/vol6/home/lpino/R/3.3.0/libs")
 library(minpack.lm)
+library(dplyr)
 
 
 curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/calibration_data_norm.csv", header= TRUE, stringsAsFactors = FALSE)
@@ -1623,9 +1619,12 @@ curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/dia-quant/data/2016analyse
 
 #peptide <- "LPPGLLANFTLLR" #nonlinear
 peptide <- "FVGTPEVNQTTLYQR" #linear
-peptide <- "ALALGSSTVMMGGMLAGTTESPGEYFYK" # gives null result on cluster
 peptide <- "BLANKVARIANCENONZERO" 
 peptide <- "BLANKVARIANCEZERO" 
+
+peptide <- "ALALGSSTVMMGGMLAGTTESPGEYFYK" # gives null result on cluster
+peptide <- "VSLPSVPSNK"
+
 subset.df <- curve.df %>% filter(NAME == peptide)
 subset.df <- na.omit(subset.df)
 
