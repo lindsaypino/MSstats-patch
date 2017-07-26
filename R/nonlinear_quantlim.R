@@ -132,7 +132,7 @@ nonlinear_quantlim_first <- function(datain){
             change = median(tmpB$C)*runif(1)*0.25
             slope=median(tmpB$I)/median(tmpB$C)*runif(1)
             
-            sink("/dev/null");
+            sink("NULL");
             #Set intercept at noise and solve for the slope and change
             fit.blank_B <- NULL
             fit.blank_B <- tryCatch({nlsLM( I ~ .bilinear_LOD(C , noise_B, slope, change),data=tmpB, trace = TRUE,start=c(slope=slope, change=change), weights = weights,
@@ -177,7 +177,7 @@ nonlinear_quantlim_first <- function(datain){
                 #Pick with replacement blank samples:
                 noise_BB = noise
                 
-                sink("/dev/null");
+                sink("NULL");
                 
                 
                 fit.blank_BB <- NULL
@@ -231,7 +231,7 @@ nonlinear_quantlim_first <- function(datain){
             ll = ll + 1
             slope = median(tmpB$I)/median(tmpB$C)*runif(1)
             intercept = noise*runif(1)
-            sink("/dev/null");
+            sink("NULL");
             lin.blank_B <-  tryCatch({nlsLM( I ~ .linear(C , intercept, slope),data=tmpB, trace = TRUE,start=c(intercept=intercept, slope=slope), weights = weights,
                                              control = nls.lm.control(nprint=1,ftol = sqrt(.Machine$double.eps)/2, maxiter = 50))}, error = function(e) {NULL}
             )
@@ -1613,14 +1613,15 @@ library(minpack.lm)
 library(dplyr)
 
 
-curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/calibration_data_norm.csv", header= TRUE, stringsAsFactors = FALSE)
-curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/TEST_df.csv", header= TRUE, stringsAsFactors = FALSE)
-curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/dia-quant/data/2016analyses/20160329lkp_CalibrationCurves_quantlib.elib.peptides.searle2msstats.csv", header=TRUE, stringsAsFactors=FALSE)
+#curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/calibration_data_norm.csv", header= TRUE, stringsAsFactors = FALSE)
+#curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/TEST_df.csv", header= TRUE, stringsAsFactors = FALSE)
+#curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/dia-quant/data/2016analyses/20160329lkp_CalibrationCurves_quantlib.elib.peptides.searle2msstats.csv", header=TRUE, stringsAsFactors=FALSE)
+curve.df <- read.csv("C:/Users/lpino/Documents/proj/MSstats-patch/dev/UPS_water_curve_encyclopedia.elib.peptides.MELTED.csv", header=TRUE, stringsAsFactors=FALSE)
 
 #peptide <- "LPPGLLANFTLLR" #nonlinear
-peptide <- "FVGTPEVNQTTLYQR" #linear
-peptide <- "BLANKVARIANCENONZERO" 
-peptide <- "BLANKVARIANCEZERO" 
+#peptide <- "FVGTPEVNQTTLYQR" #linear
+#peptide <- "BLANKVARIANCENONZERO" 
+#peptide <- "BLANKVARIANCEZERO" 
 
 peptide <- "ALALGSSTVMMGGMLAGTTESPGEYFYK" # gives null result on cluster
 peptide <- "VSLPSVPSNK"
@@ -1628,13 +1629,14 @@ peptide <- "VSLPSVPSNK"
 subset.df <- curve.df %>% filter(NAME == peptide)
 subset.df <- na.omit(subset.df)
 
-testout.vanilla <- nonlinear_quantlim(subset.df)
+#testout.vanilla <- nonlinear_quantlim(subset.df)
 testout.modded <- nonlinear_quantlim_modded(subset.df)
 
 plot_quantlim(spikeindata = subset.df, quantlim_out = testout.modded, dir_output=getwd())
 
 
 # calculate LOD/LOQ for each peptide, storing plots in a designated directory
+peptide.batch <- unique(curve.df$NAME)
 date <- Sys.Date()
 fo <- paste(getwd(), "/proj/MSstats-patch/dev/", date, ".txt", sep="")
 counter <- 1 # inititalize counter for "for" loop below
@@ -1650,25 +1652,33 @@ for (peptide in peptide.batch){
   df_in <- curve.df %>% filter(NAME == peptide)
   
   #Count the number of blank samples for the peptide (with a non NA intensity) [commented out 'and with different values']
-  #df_blank = df_in %>% filter(CONCENTRATION == 0 & !is.na(INTENSITY)) #%>%  distinct(INTENSITY) 
+  df_blank = df_in %>% filter(CONCENTRATION == 0 & !is.na(INTENSITY)) #%>%  distinct(INTENSITY) 
   
   #n_blank = number of "acceptable" blank samples:
-  #n_blank = nrow(df_blank)
-  #print(paste("n_blank=",n_blank))
+  n_blank = nrow(df_blank)
+  print(paste("n_blank=",n_blank))
   if(n_blank <= 1) {next}
   
   df_out <- nonlinear_quantlim_modded(df_in)
-  try(plot_quantlim(spikeindata = df_in, quantlim_out = df_out, dir_output=getwd()))
+  try(plot_quantlim(spikeindata = df_in, quantlim_out = df_out, dir_output=paste(getwd(),'/proj/MSstats-patch/dev/',date,sep="")))
   
   # write the nonlinear_quantlim() results to an outfile for more downstream processing
-  #if(counter == 1){
-  #  write.table(df_out, file=fo, append=FALSE, col.names=TRUE)
-  #} else {
-  #  try(write.table(df_out, file=fo, append=TRUE, col.names=FALSE))
-  #}
+  if(counter == 1){
+    write.table(df_out, file=fo, append=FALSE, col.names=TRUE)
+  } else {
+    try(write.table(df_out, file=fo, append=TRUE, col.names=FALSE))
+  }
   
   print(df_out)
   
+}
+
+for (peptide in peptide.batch){
+  df_in <- curve.df %>% filter(NAME == peptide)
+  plot(x=df_in$CONCENTRATION,y=df_in$INTENSITY)
+  fo <- paste(getwd(), "/proj/MSstats-patch/dev/afed/", peptide, ".jpg", sep="")
+  dev.copy(jpeg,filename=fo);
+  dev.off ();
 }
 
 print(df_out)

@@ -111,8 +111,8 @@ plot_quantlim <- function(spikeindata, quantlim_out, alpha, dir_output, xlim_plo
   }  
   
   
-  filename = paste(dir_output,'/',datain$NAME[1],'_',datain$METHOD[1],'_overall.pdf',sep='')
-  pdf(filename)
+  filename = paste(dir_output,'/',datain$NAME[1],'_',datain$METHOD[1],'_overall.svg',sep='')
+  svg(filename)
   if(LOQ_pred > xaxis_orig_2[3]){
     C_max = xaxis_orig_2[min(which(abs(LOQ_pred - xaxis_orig_2) == min(abs(LOQ_pred - xaxis_orig_2))) +1, length(xaxis_orig_2))]      }else{
       C_max = xaxis_orig_2[which(abs(mean(xaxis_orig_2) - xaxis_orig_2) == min(abs(mean(xaxis_orig_2) - xaxis_orig_2)))]
@@ -175,8 +175,8 @@ plot_quantlim <- function(spikeindata, quantlim_out, alpha, dir_output, xlim_plo
   
   
 
-  filename = paste(dir_output,'/',datain$NAME[1],'_',datain$METHOD[1],'_zoom.pdf',sep='')
-  pdf(filename)
+  filename = paste(dir_output,'/',datain$NAME[1],'_',datain$METHOD[1],'_zoom.svg',sep='')
+  svg(filename)
 
   
 
