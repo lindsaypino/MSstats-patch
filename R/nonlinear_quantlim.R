@@ -1616,20 +1616,25 @@ library(dplyr)
 #curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/calibration_data_norm.csv", header= TRUE, stringsAsFactors = FALSE)
 #curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/MSstats-patch/MSstats-patch/dev/TEST_df.csv", header= TRUE, stringsAsFactors = FALSE)
 #curve.df <- read.csv("C:/Users/Lindsay/Documents/proj/dia-quant/data/2016analyses/20160329lkp_CalibrationCurves_quantlib.elib.peptides.searle2msstats.csv", header=TRUE, stringsAsFactors=FALSE)
-curve.df <- read.csv("C:/Users/lpino/Documents/proj/MSstats-patch/dev/UPS_water_curve_encyclopedia.elib.peptides.MELTED.csv", header=TRUE, stringsAsFactors=FALSE)
+#curve.df <- read.csv("C:/Users/lpino/Documents/proj/MSstats-patch/dev/UPS_water_curve_encyclopedia.elib.peptides.MELTED.csv", header=TRUE, stringsAsFactors=FALSE)
+curve.df <- read.csv("C:/Users/lpino/Documents/proj/dia-quant/data/20170326_YeastQuant_CalibrationCurve_201705analysis.elib.peptides.MELTED.csv", header=TRUE, stringsAsFactors=FALSE)
+
 
 #peptide <- "LPPGLLANFTLLR" #nonlinear
 #peptide <- "FVGTPEVNQTTLYQR" #linear
 #peptide <- "BLANKVARIANCENONZERO" 
 #peptide <- "BLANKVARIANCEZERO" 
 
-peptide <- "ALALGSSTVMMGGMLAGTTESPGEYFYK" # gives null result on cluster
-peptide <- "VSLPSVPSNK"
+#peptide <- "ALALGSSTVMMGGMLAGTTESPGEYFYK" # gives null result on cluster
+#peptide <- "VSLPSVPSNK"
+
+peptide <- sample(unique(curve.df$NAME),size=1,replace=FALSE)
 
 subset.df <- curve.df %>% filter(NAME == peptide)
 subset.df <- na.omit(subset.df)
+boxplot(formula = INTENSITY ~ CONCENTRATION, data=subset.df)
 
-#testout.vanilla <- nonlinear_quantlim(subset.df)
+testout.vanilla <- nonlinear_quantlim(subset.df)
 testout.modded <- nonlinear_quantlim_modded(subset.df)
 
 plot_quantlim(spikeindata = subset.df, quantlim_out = testout.modded, dir_output=getwd())
